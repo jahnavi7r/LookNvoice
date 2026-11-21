@@ -11,7 +11,7 @@ from ui.splash import SplashPage
 from ui.bell_button import BellButton
 from ui.theme import CARD_PALETTE, BACK_COLOR, NEXT_COLOR, UI_FONT
 from nlp.speech_engine import SpeechEngine
-from nlp.languages import LANGUAGES, LANGUAGE_ORDER, find_entry
+from nlp.languages import LANGUAGES, find_entry
 from audio.voice import VoiceOutput
 from audio import alarm
 from nlp.emergency_text import EMERGENCY_TEXT
@@ -37,15 +37,11 @@ MAIN_ORDER = ["food", "water", "go", "pain", "help", "yesno"]
 MAIN_SLOTS = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]
 HIDDEN_ITEMS = {"tiffin"}
 
-LANG_WORD = {"te": "భాష", "en": "Language", "hi": "भाषा"}
-BACK_WORD = {"te": "వెనుకకు", "en": "Back", "hi": "वापस"}
-
 PAGE_MAIN = 0
 PAGE_SUB = 1
 PAGE_OUTPUT = 2
-PAGE_LANGUAGE = 3
-PAGE_SPLASH = 4
-PAGE_EMERGENCY = 5
+PAGE_SPLASH = 3
+PAGE_EMERGENCY = 4
 
 STOP_DWELL_MS = 3000
 EMERGENCY_DWELL_MS = 1800
@@ -107,12 +103,14 @@ class AACMainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("AAC Assistive Gaze Interface")
+        self.setWindowTitle("LookNvoice • తెలుగు")
         self.showFullScreen()
 
+        self.lang = LANGUAGES["te"]
         self.speech_engine = SpeechEngine()
+        self.speech_engine.set_language("te")
         self.voice = VoiceOutput()
-        self.lang = None
+
         self.active_category = None
         self.cards = []
         self.active_card = None
@@ -134,13 +132,13 @@ class AACMainWindow(QMainWindow):
         screen_w = QApplication.primaryScreen().geometry().width()
         pad = max(0, int(screen_w * 0.12) - 40)
 
-        # Header with emergency bell + active language indicator + camera preview
+        # Header with emergency bell + title + camera preview
         self.header_layout = QHBoxLayout()
         self.bell = BellButton(dwell_time_ms=EMERGENCY_DWELL_MS)
         self.bell.dwell_completed.connect(lambda *_: self.trigger_emergency())
         self.header_layout.addWidget(self.bell)
 
-        self.header_title = QLabel("")
+        self.header_title = QLabel("LookNvoice  •  తెలుగు")
         self.header_title.setStyleSheet(
             f"color: #8A94A6; font-family: {UI_FONT}; font-size: 20px; font-weight: bold; padding-left: 14px;"
         )
@@ -202,39 +200,19 @@ class AACMainWindow(QMainWindow):
         """)
         self.output_layout.addWidget(self.output_label, stretch=2)
 
-        self.output_back_btn = DwellCard("BACK", key="__back__", bg_color=THEME["card_back"],
+        self.output_back_btn = DwellCard("వెనుకకు", key="__back__", bg_color=THEME["card_back"],
                                          dwell_time_ms=DWELL_MS)
         self.output_back_btn.icon_name = "back"
         self.output_back_btn.setMinimumHeight(120)
         self.output_back_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.output_back_btn.dwell_completed.connect(lambda *_: self.go_back_from_output())
-
         self.output_layout.addWidget(self.output_back_btn, stretch=1)
 
-        # ---------------- Page 3: Language selection ----------------
-        self.language_page = QWidget()
-        self.language_layout = QVBoxLayout(self.language_page)
-        self.language_layout.setContentsMargins(pad, 0, pad, 0)
-        self.language_prompt = QLabel("భాషను ఎంచుకోండి   •   Select Language   •   भाषा चुनें")
-        self.language_prompt.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.language_prompt.setStyleSheet(
-            f"color: #B0BEC5; font-family: {UI_FONT}; font-size: 30px; "
-            "font-weight: bold; padding: 10px;"
-        )
-        self.language_layout.addWidget(self.language_prompt)
-        self.language_grid_container = QWidget()
-        self.language_grid = QGridLayout(self.language_grid_container)
-        self.language_grid.setSpacing(30)
-        self.language_grid.setRowStretch(0, 1)
-        for c in range(len(LANGUAGE_ORDER)):
-            self.language_grid.setColumnStretch(c, 1)
-        self.language_layout.addWidget(self.language_grid_container, stretch=1)
-
-        # ---------------- Page 4: Splash ----------------
+        # ---------------- Page 3: Splash ----------------
         self.splash_page = SplashPage()
         self.splash_page.finished.connect(self._after_splash)
 
-        # ---------------- Page 5: Emergency alarm ----------------
+        # ---------------- Page 4: Emergency alarm ----------------
         self.emergency_page = EmergencyPage()
         em_layout = QVBoxLayout(self.emergency_page)
         em_layout.setContentsMargins(40, 40, 40, 40)
@@ -250,7 +228,7 @@ class AACMainWindow(QMainWindow):
         self.emergency_hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.emergency_hint.setWordWrap(True)
         em_layout.addWidget(self.emergency_hint, stretch=1)
-        self.stop_card = DwellCard("STOP ALARM", key="__stop__", bg_color="#F4F1E8",
+        self.stop_card = DwellCard(self._em("stop"), key="__stop__", bg_color="#F4F1E8",
                                    text_color="#8C1D18", dwell_time_ms=STOP_DWELL_MS, font_px=56)
         self.stop_card.setMinimumHeight(220)
         self.stop_card.dwell_completed.connect(lambda *_: self.stop_emergency())
@@ -263,9 +241,8 @@ class AACMainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.main_menu_page)   # 0
         self.stacked_widget.addWidget(self.sub_menu_page)    # 1
         self.stacked_widget.addWidget(self.output_page)      # 2
-        self.stacked_widget.addWidget(self.language_page)    # 3
-        self.stacked_widget.addWidget(self.splash_page)      # 4
-        self.stacked_widget.addWidget(self.emergency_page)   # 5
+        self.stacked_widget.addWidget(self.splash_page)      # 3
+        self.stacked_widget.addWidget(self.emergency_page)   # 4
 
         self.cursor_overlay = GazePointerOverlay() if SHOW_POINTER else None
 
@@ -274,6 +251,7 @@ class AACMainWindow(QMainWindow):
         self.watchdog.timeout.connect(self._check_gaze_alive)
         self.watchdog.start()
 
+        self._update_bell_caption()
         self._show_header(False)
         self.stacked_widget.setCurrentIndex(PAGE_SPLASH)
 
@@ -293,10 +271,6 @@ class AACMainWindow(QMainWindow):
             self.close()
         elif event.key() in (Qt.Key.Key_C, Qt.Key.Key_F5):
             self.trigger_recalibration()
-        elif event.key() == Qt.Key.Key_L:
-            if self.stage == "running":
-                self._stop_speech()
-                self.render_language_menu()
         elif event.key() == Qt.Key.Key_F11:
             if self.isFullScreen():
                 self.showNormal()
@@ -345,8 +319,7 @@ class AACMainWindow(QMainWindow):
 
     # ---------------------------------------------------------- language helpers
     def _ui(self, key, default=""):
-        lang = self.lang or LANGUAGES[LANGUAGE_ORDER[0]]
-        return lang["ui"].get(key, default)
+        return self.lang["ui"].get(key, default)
 
     def _menu_entry(self, entry_id):
         return find_entry(self.lang["menu"], entry_id)
@@ -354,14 +327,12 @@ class AACMainWindow(QMainWindow):
     def _main_label(self, entry_id):
         if entry_id == "yesno":
             yes, no = self._menu_entry("yes"), self._menu_entry("no")
-            lang_word = LANG_WORD.get(self.lang["code"], "Language")
-            return f"{yes['label']} / {no['label']} / {lang_word}"
+            return f"{yes['label']} / {no['label']}"
         return self._menu_entry(entry_id)["label"]
 
     def _speak(self, sentence):
-        code = self.lang["code"]
         self.voice.stop()
-        self.speech_engine.speak(sentence, code)
+        self.speech_engine.speak(sentence, "te")
 
     def _stop_speech(self):
         self.voice.stop()
@@ -380,6 +351,7 @@ class AACMainWindow(QMainWindow):
         self.recalibrate_requested.emit()
 
     # ------------------------------------------------------------------- pages
+    # Start-up flow:  splash -> calibration -> Telugu main menu directly
     def start_flow(self):
         if self.stage != "waiting":
             return
@@ -406,51 +378,16 @@ class AACMainWindow(QMainWindow):
         self.calibrating = False
         if self.stage == "calibrating":
             self.stage = "running"
-            self.render_language_menu()
+            self._show_header(True)
+            self.render_main_menu()
         else:
             self.lock_page_briefly(1500)
 
-    def render_language_menu(self, *_):
-        self._stop_auto_return()
-        self.clear_active_cards()
-        self.lang = None
-        self.active_category = None
-        self.header_title.setText("AAC Assistive Gaze Interface")
-        self._show_header(True)
-        self.stacked_widget.setCurrentIndex(PAGE_LANGUAGE)
-        self._clear_grid(self.language_grid)
-
-        for i, code in enumerate(LANGUAGE_ORDER):
-            card = DwellCard(LANGUAGES[code]["name"], key=code,
-                             bg_color=CARD_PALETTE[(i * 2 + 1) % len(CARD_PALETTE)],
-                             dwell_time_ms=DWELL_MS, font_px=56)
-            card.dwell_completed.connect(self.select_language)
-            self.language_grid.addWidget(card, 0, i)
-            self.cards.append(card)
-        self._update_bell_caption()
-
-        self.lock_page_briefly(1500)
-
-    def select_language(self, code: str):
-        """Directly enter the selected language's main menu without confirmation slide."""
-        self.lang = LANGUAGES[code]
-        self.speech_engine.set_language(code)
-        self.header_title.setText(f"AAC Assistive Gaze Interface  •  {self.lang['name']}")
-        self._update_bell_caption()
-        self.render_main_menu()
-
-    def go_back_to_language(self, *_):
-        self._stop_speech()
-        self.render_language_menu()
-
     def render_main_menu(self, *_):
-        if self.lang is None:
-            self.render_language_menu()
-            return
-
         self._stop_auto_return()
         self.clear_active_cards()
         self.active_category = None
+        self._show_header(True)
         self.stacked_widget.setCurrentIndex(PAGE_MAIN)
         self._clear_grid(self.main_grid)
 
@@ -480,17 +417,17 @@ class AACMainWindow(QMainWindow):
                             self.sub_grid, r, c, self.handle_sub_card_selection,
                             key=item["id"], icon=ICON_ALIAS.get(item["id"], item["id"]))
         if n_pages > 1:
-            self._make_card(f"{self._ui('next', 'NEXT')} ›", THEME["card_next"],
+            self._make_card(f"{self._ui('next', 'తదుపరి')} ›", THEME["card_next"],
                             self.sub_grid, 1, 1,
                             lambda *_: self.render_sub_menu(category_id, page + 1),
                             key="__next__", icon="next")
-        self._make_card(self._ui("back", "BACK"), THEME["card_back"], self.sub_grid, 1, 2,
+        self._make_card(self._ui("back", "వెనుకకు"), THEME["card_back"], self.sub_grid, 1, 2,
                         lambda *_: self.render_main_menu(), key="__back__", icon="back")
         self.lock_page_briefly()
 
     def render_yes_no(self):
-        """Exact layout from reference image:
-        Col 0 (full height): Yes | Col 1 (full height): No | Col 2 top: Language | Col 2 bottom: Back
+        """Telugu Yes / No screen:
+        Col 0 (full height): అవును | Col 1 (full height): కాదు | Col 2 (full height): వెనుకకు
         """
         self._stop_auto_return()
         self.clear_active_cards()
@@ -498,45 +435,33 @@ class AACMainWindow(QMainWindow):
         self.stacked_widget.setCurrentIndex(PAGE_SUB)
         self._clear_grid(self.sub_grid)
 
-        code = self.lang["code"]
         yes, no = self._menu_entry("yes"), self._menu_entry("no")
-        lang_label = LANG_WORD.get(code, "Language")
-        back_label = BACK_WORD.get(code, self._ui("back", "Back"))
+        back_label = self._ui("back", "వెనుకకు")
 
-        # Col 0 (full height): Yes
         self._make_card(
             yes["label"], "#A5C9B4", self.sub_grid, 0, 0,
             self.handle_yesno_selection, rowspan=2, colspan=1,
             key="yes", font_px=54, icon="yesno_yes"
         )
-        # Col 1 (full height): No
         self._make_card(
             no["label"], "#E2B4BD", self.sub_grid, 0, 1,
             self.handle_yesno_selection, rowspan=2, colspan=1,
             key="no", font_px=54, icon="yesno_no"
         )
-        # Col 2, Top: Language
         self._make_card(
-            lang_label, "#E5BC96", self.sub_grid, 0, 2,
-            self.go_back_to_language, rowspan=1, colspan=1,
-            key="__lang__", font_px=44, icon="yesno_lang"
-        )
-        # Col 2, Bottom: Back
-        self._make_card(
-            back_label, "#B6BCC8", self.sub_grid, 1, 2,
-            lambda *_: self.render_main_menu(), rowspan=1, colspan=1,
-            key="__back__", font_px=44, icon="yesno_back"
+            back_label, "#B6BCC8", self.sub_grid, 0, 2,
+            lambda *_: self.render_main_menu(), rowspan=2, colspan=1,
+            key="__back__", font_px=48, icon="yesno_back"
         )
 
         self.lock_page_briefly()
 
     # ------------------------------------------------------------- emergency alarm
     def _em(self, key):
-        code = self.lang["code"] if self.lang else LANGUAGE_ORDER[0]
-        return EMERGENCY_TEXT[code][key]
+        return EMERGENCY_TEXT["te"][key]
 
     def _update_bell_caption(self):
-        text = self._em("emergency") if self.lang else "Emergency"
+        text = self._em("emergency")
         self.bell.text_label = text
         self.bell.setText(text)
 
@@ -552,16 +477,10 @@ class AACMainWindow(QMainWindow):
         self._stop_auto_return()
         self.clear_active_cards()
         self._set_active_card(None)
-        if self.lang is None:
-            self.emergency_title.setText("EMERGENCY!")
-            self.emergency_sub.setText(EMERGENCY_TEXT["te"]["title"] + "   " + EMERGENCY_TEXT["hi"]["title"])
-            self.emergency_hint.setText("")
-            stop_text = "STOP ALARM"
-        else:
-            self.emergency_title.setText(self._em("title"))
-            self.emergency_sub.setText(self._em("subtitle"))
-            self.emergency_hint.setText(self._em("hint"))
-            stop_text = self._em("stop")
+        self.emergency_title.setText(self._em("title"))
+        self.emergency_sub.setText(self._em("subtitle"))
+        self.emergency_hint.setText(self._em("hint"))
+        stop_text = self._em("stop")
         self.stop_card.text_label = stop_text
         self.stop_card.setText(stop_text)
         self.cards.append(self.stop_card)
@@ -592,10 +511,7 @@ class AACMainWindow(QMainWindow):
         self.clear_active_cards()
         self.emergency_page.setStyleSheet("")
         self._show_header(True)
-        if self.lang is None:
-            self.render_language_menu()
-        else:
-            self.render_main_menu()
+        self.render_main_menu()
 
     # ---------------------------------------------------------------- handlers
     def handle_main_card_selection(self, entry_id: str):
@@ -631,8 +547,7 @@ class AACMainWindow(QMainWindow):
         self.output_label.setText(sentence)
         self.stacked_widget.setCurrentIndex(PAGE_OUTPUT)
 
-        back = self._ui("back", "BACK")
-        back_text = back if back.upper() == "BACK" else f"{back} (BACK)"
+        back_text = self._ui("back", "వెనుకకు")
         self.output_back_btn.text_label = back_text
         self.output_back_btn.setText(back_text)
 

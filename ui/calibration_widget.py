@@ -11,9 +11,7 @@ RESULT_MS = 3500     # how long the accuracy result stays on screen when success
 
 # Instruction screen shown before the dots: short, simple words in 3 languages.
 INSTRUCTIONS = [
-    (["మీ తలను కదపకండి.", "ప్రతి చుక్కను కళ్లతో చూడండి."], CARD_PALETTE[0]),            # Telugu
-    (["Keep your head still.", "Follow each dot with your eyes."], CARD_PALETTE[1]),      # English
-    (["अपना सिर स्थिर रखें।", "हर बिंदु को आँखों से देखें।"], CARD_PALETTE[2]),            # Hindi
+    (["మీ తలను కదపకండి.", "ప్రతి చుక్కను కళ్లతో చూడండి."], CARD_PALETTE[0]),# Telugu
 ]
 INSTRUCTION_FONTS = ["Nirmala UI", "Noto Sans Telugu", "Noto Sans Devanagari", "Segoe UI", "Arial"]
 INSTRUCTION_SIZE = 0.045
